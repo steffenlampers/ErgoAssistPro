@@ -22,7 +22,7 @@ To ensure a fluid experience with local models, the following environment is use
 - [ ] Fix bug: Settings are not saved upon page reload
 - [ ] Fix bug: Patient records cannot be opened or edited
 - [ ] Fix bug: Advisor Assistant does not save outputs and loses patient assignment
-- [ ] Set up cloud synchronization or central database (data must be accessible across devices)
+- [ ] Set up synchronization database (data must be accessible across devices)
 - [ ] Adjust responsive design (app must work flawlessly on smartphones and tablets)
 
 ## 🤖 AI & GLOBAL ASSISTANT
@@ -32,7 +32,6 @@ To ensure a fluid experience with local models, the following environment is use
 - [ ] Implement automatic question generation for anamnesis when creating new patients
 - [ ] Create a question library (for recurring patient patterns)
 - [ ] Add a "Renew" button to generated AI questions (to prompt more suitable alternatives)
-- [ ] Develop a photo analyzer (AI estimates age, gender, grooming status, facial expressions from uploaded images)
 
 ## 📁 PATIENT RECORD & DATA PERSISTENCE (PHASE 2)
 - [ ] Finalize patient management (create, load, archive)
@@ -82,7 +81,7 @@ ErgoAssist Pro ist ein spezialisierter KI-Assistent für die Ergotherapie, der d
 - [ ] Fehler beheben: Einstellungen werden beim Neuladen nicht gespeichert
 - [ ] Fehler beheben: Patientenakte lässt sich nicht öffnen und bearbeiten
 - [ ] Fehler beheben: Berater-Assistent speichert Ausgaben nicht und verliert die Patientenzuordnung
-- [ ] Cloud-Synchronisation oder zentrale Datenbank einrichten (Daten müssen geräteübergreifend verfügbar sein)
+- [ ] Synchronisation Datenbank einrichten (Daten müssen geräteübergreifend verfügbar sein)
 - [ ] Responsive Design anpassen (App muss auf Smartphone und Tablet einwandfrei funktionieren)
 
 ## 🤖 KI & GLOBALER ASSISTENT
@@ -92,7 +91,6 @@ ErgoAssist Pro ist ein spezialisierter KI-Assistent für die Ergotherapie, der d
 - [ ] Automatische Fragengenerierung für die Befragung bei der Neuanlage von Patienten einbauen
 - [ ] Fragen-Bibliothek anlegen (für wiederkehrende Patientenmuster)
 - [ ] Renew-Button bei generierten KI-Fragen hinzufügen (für passendere Alternativen)
-- [ ] Foto-Analysator entwickeln (KI erkennt Alter, Geschlecht, Pflegezustand, Mimik aus hochgeladenen Bildern)
 
 ## 📁 PATIENTENAKTE & DATEN-PERSISTENZ (PHASE 2)
 - [ ] Patientenverwaltung fertigstellen (Anlegen, Laden, Archivieren)
