@@ -1,7 +1,7 @@
 // ErgoAssist Pro – Server (ohne Abhaengigkeiten, Node >= 18)
 // - liefert die Web-App aus
 // - speichert Daten dauerhaft in /data (Docker-Volume) -> geraeteuebergreifend
-// - leitet /ollama/* an die lokale KI weiter (kein CORS-Problem)
+// - leitet /llm/* an die lokale KI weiter (Ollama oder OpenAI-kompatibel, kein CORS-Problem)
 // - optional: Passwortschutz (ACCESS_PASSWORD)
 const http = require("http");
 const fs = require("fs");
@@ -10,7 +10,9 @@ const path = require("path");
 const PORT = +process.env.PORT || 8080;
 const DATA_DIR = process.env.DATA_DIR || "/data";
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
-const OLLAMA = (process.env.OLLAMA_URL || "http://ollama:11434").replace(/\/$/, "");
+// Upstream der KI. Ollama: http://host:11434 | OpenAI-kompatibel: http://host:port/v1
+const LLM = (process.env.LLM_URL || process.env.OLLAMA_URL || "http://ollama:11434").replace(/\/$/, "");
+const LLM_KEY = process.env.LLM_API_KEY || "";
 const PASSWORD = process.env.ACCESS_PASSWORD || "";
 const KEYS = new Set(["ergoassist_patients", "ergoassist_settings"]);
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".txt": "text/plain" };
@@ -38,16 +40,17 @@ function save(k, body) {
   old.forEach(n => fs.unlinkSync(path.join(DATA_DIR, "backups", n)));
 }
 
-function proxyOllama(req, res) {
-  const target = new URL(OLLAMA + req.url.replace(/^\/ollama/, ""));
+function proxyLLM(req, res) {
+  const target = new URL(LLM + req.url.replace(/^\/(llm|ollama)/, ""));
   const headers = { ...req.headers, host: target.host };
   delete headers.origin; delete headers.referer; delete headers.authorization; // sonst lehnt Ollama (CORS) ab
+  if (LLM_KEY) headers.authorization = "Bearer " + LLM_KEY;
   const p = http.request(target, { method: req.method, headers }, r => {
     res.writeHead(r.statusCode, r.headers);
     r.pipe(res);
   });
-  p.on("error", () => { res.writeHead(502); res.end("Ollama nicht erreichbar"); });
-  req.on("close", () => p.destroy());
+  p.on("error", e => { console.error("LLM-Proxy:", e.message); res.writeHead(502); res.end("KI-Server nicht erreichbar"); });
+  res.on("close", () => p.destroy()); // Abbruch durch den Browser stoppt auch die KI-Anfrage
   req.pipe(p);
 }
 
@@ -58,7 +61,7 @@ http.createServer((req, res) => {
     res.writeHead(401, { "WWW-Authenticate": 'Basic realm="ErgoAssist Pro"' });
     return res.end("Login erforderlich");
   }
-  if (url.pathname.startsWith("/ollama/")) return proxyOllama(req, res);
+  if (/^\/(llm|ollama)\//.test(url.pathname)) return proxyLLM(req, res);
 
   if (url.pathname.startsWith("/api/data/")) {
     const k = url.pathname.slice(10);
@@ -91,4 +94,4 @@ http.createServer((req, res) => {
   if (!full.startsWith(PUBLIC_DIR) || !fs.existsSync(full) || fs.statSync(full).isDirectory()) { res.writeHead(404); return res.end("Nicht gefunden"); }
   res.writeHead(200, { "Content-Type": TYPES[path.extname(full)] || "application/octet-stream", "Cache-Control": "no-cache" });
   fs.createReadStream(full).pipe(res);
-}).listen(PORT, () => console.log(`ErgoAssist Pro laeuft auf Port ${PORT}, Daten in ${DATA_DIR}, KI: ${OLLAMA}`));
+}).listen(PORT, () => console.log(`ErgoAssist Pro laeuft auf Port ${PORT}, Daten in ${DATA_DIR}, KI: ${LLM}`));

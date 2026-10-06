@@ -1,0 +1,35 @@
+# Alternative ohne eigene IP: erreichbar unter http://<NAS-IP>:8787  (Port bei Bedarf aendern)
+services:
+  ergoassist:
+    image: ghcr.io/steffenlampers/ergoassistpro:latest
+    container_name: ergoassist
+    restart: unless-stopped
+    ports:
+      - "8787:8080"
+    environment:
+      LLM_URL: "http://ollama:11434"
+      LLM_API_KEY: ""
+      ACCESS_PASSWORD: ""
+    volumes:
+      - ergoassist_data:/data
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ergoassist-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_models:/root/.ollama
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: ergoassist-updater
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_POLL_INTERVAL: "86400"
+volumes:
+  ergoassist_data:
+  ollama_models:

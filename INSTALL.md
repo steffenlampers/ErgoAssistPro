@@ -1,41 +1,38 @@
 # ErgoAssist Pro installieren (QNAP Container Station)
 
-Ohne Technik-Kenntnisse, ca. 5 Minuten. Alles läuft nur in deinem Heimnetz, es gehen keine Patientendaten ins Internet.
+Ca. 10 Minuten, ohne Technik-Kenntnisse. Alles läuft in deinem Heimnetz, es gehen keine Patientendaten ins Internet.
 
-## 1. Installieren
-1. QNAP: **Container Station** öffnen → links **Anwendungen** → **Erstellen**.
-2. Name: `ergoassist`.
-3. Den kompletten Inhalt der Datei [`docker-compose.yml`](docker-compose.yml) in das Textfeld einfügen.
-4. **Erstellen** klicken. Beim ersten Mal werden die Bilder geladen (einige Minuten).
-5. Aufrufen: `http://<IP-deines-NAS>:8080` (auch vom Smartphone/Tablet im WLAN).
+## 1. Installieren (mit eigener IP, ohne Port-Konflikte)
+1. Im Router (z. B. Fritzbox) notieren: **IP des Routers** (z. B. `192.168.178.1`), **Heimnetz** (z. B. `192.168.178.0/24`) und eine **freie IP** für ErgoAssist (z. B. `192.168.178.60`, außerhalb des DHCP-Bereichs).
+2. QNAP **Container Station** → **Anwendungen** → **Erstellen** → Name `ergoassist`.
+3. Inhalt von [`docker-compose.yml`](docker-compose.yml) einfügen und die mit `<<< ANPASSEN` markierten Zeilen ändern (IP, Netz, Router, Netzwerkkarte `eth0`/`qvs0`).
+4. **Erstellen**. Beim ersten Start werden die Bilder geladen (einige Minuten).
+5. Aufrufen: `http://192.168.178.60` – auch mit Smartphone/Tablet im WLAN.
 
-## 2. Lokale KI verbinden
-**Variante A – KI auf dem NAS (im Paket enthalten):** Der Ollama-Container läuft schon mit. Modelle laden: Container Station → Container `ergoassist-ollama` → **Terminal** →
-`ollama pull qwen2.5:3b` und `ollama pull llama3.1:8b`.
-(Ohne GPU läuft das auf einem NAS langsam. Empfohlen ist Variante B.)
+> Technische Eigenheit einer eigenen IP (Macvlan): Das NAS selbst erreicht diese IP nicht, alle anderen Geräte schon. Wenn es gar nicht klappt: [`docker-compose.einfach.yml`](docker-compose.einfach.yml) nutzen (läuft unter `http://<NAS-IP>:8787`).
 
-**Variante B – KI auf einem anderen Rechner (z. B. Minisforum):** In `docker-compose.yml` bei `OLLAMA_URL` die Adresse eintragen, z. B. `http://192.168.1.50:11434`. Den `ollama:`-Block darf man dann löschen. Auf dem KI-Rechner muss Ollama im Netz erreichbar sein (`OLLAMA_HOST=0.0.0.0`).
+## 2. KI anbinden
+In `docker-compose.yml` bei `LLM_URL` die Adresse deiner KI eintragen. In der App unter **Einstellungen → KI-Engine** wählst du den passenden Typ.
 
-In der App unter **Einstellungen** wird die Verbindung angezeigt. Die Adresse dort bleibt auf `…/ollama` stehen.
+| Deine KI | Engine in der App | `LLM_URL` |
+|---|---|---|
+| Ollama im Paket (auf dem NAS, langsam ohne GPU) | Ollama | `http://ollama:11434` |
+| Ollama auf anderem Rechner (z. B. Minisforum) | Ollama | `http://192.168.178.50:11434` |
+| LM Studio, llama.cpp, vLLM, LocalAI, Open WebUI | OpenAI-kompatibel | `http://192.168.178.50:1234/v1` |
+| Hermes (Nous Research) | siehe unten | – |
 
-## 3. Eigene IP-Adresse im Heimnetz (optional)
-Standard ist `NAS-IP:8080`. Für eine eigene IP (z. B. `192.168.1.60`) in Container Station **Netzwerk → Netzwerk erstellen → Typ „Macvlan“** (Subnetz/Gateway deines Routers, IP-Bereich z. B. `192.168.1.60/32`). Dann im Compose beim Dienst `ergoassist`:
-```yaml
-    networks:
-      ergo_lan:
-        ipv4_address: 192.168.1.60
-# ... und ganz unten:
-networks:
-  ergo_lan:
-    external: true
-    name: <Name des erstellten Netzwerks>
-```
-und die `ports:`-Zeilen entfernen. Der Dienst muss außerdem weiter `ollama` erreichen: beide Dienste zusätzlich ins Netz `default` aufnehmen. Alternativ: Im Router der NAS eine feste IP geben – das reicht meist.
+Braucht dein KI-Server einen Schlüssel, trägst du ihn bei `LLM_API_KEY` ein. Er bleibt auf dem Server und gelangt nie in den Browser.
 
-## 4. Updates
-Automatisch: der Container `ergoassist-updater` (Watchtower) prüft täglich auf eine neue Version und aktualisiert. Manuell: Container Station → Anwendung `ergoassist` → **Neu erstellen / Images aktualisieren**. Deine Daten bleiben im Volume `ergoassist_data` erhalten.
+**Ollama im Paket:** Modelle laden über Container Station → `ergoassist-ollama` → Terminal: `ollama pull qwen2.5:3b` und `ollama pull llama3.1:8b`. Bei Ollama auf einem anderen Rechner muss dort `OLLAMA_HOST=0.0.0.0` gesetzt sein.
 
-## 5. Daten & Sicherheit
-- Alle Daten liegen im Volume `ergoassist_data` (`/data`) mit automatischem Tages-Backup (letzte 14 Tage). Das Volume zusätzlich mit QNAP-Snapshots sichern.
-- **Passwort:** In `docker-compose.yml` `ACCESS_PASSWORD` setzen (Benutzername beliebig). Hinweis: Ohne HTTPS wird das Passwort im Heimnetz unverschlüsselt übertragen. Die App nicht ins Internet freigeben.
-- Das Image wird bei jedem Push auf `main` per GitHub Actions gebaut. Beim ersten Mal in GitHub unter *Packages → ergoassistpro → Package settings* auf **Public** stellen, sonst kann das NAS es nicht laden.
+**Hermes:** Die *Hermes-Modelle* (z. B. `hermes3`) laufen ganz normal über Ollama. Der *Hermes Agent* (Nous Research) bietet eine OpenAI-kompatible Schnittstelle, die du als „OpenAI-kompatibel“ eintragen kannst. Ehrliche Einschätzung: Für Befundtexte und Ziele genügt ein normales Modell. Ein Agent mit Werkzeugen und Dateizugriff bringt in einer Patientenakte-App eher Risiken (Datenschutz, nicht vorhersehbares Verhalten) als Nutzen. Ich empfehle ihn nur, wenn du später echte Automatisierung willst.
+
+## 3. Updates
+Automatisch: Der Container `ergoassist-updater` (Watchtower) prüft täglich auf neue Versionen. Manuell: Container Station → Anwendung `ergoassist` → Images aktualisieren und neu erstellen. Deine Daten bleiben im Volume `ergoassist_data` erhalten.
+
+## 4. Daten & Sicherheit
+- Alle Daten liegen im Volume `ergoassist_data` mit Tages-Backup (letzte 14 Tage). Zusätzlich QNAP-Snapshots verwenden.
+- **Passwort:** `ACCESS_PASSWORD` setzen (Benutzername beliebig). Ohne HTTPS geht es im Heimnetz unverschlüsselt über die Leitung. Die App nicht ins Internet freigeben.
+
+## Für Entwickler: Veröffentlichung
+Bei jedem Push auf `main` baut GitHub Actions das Image `ghcr.io/steffenlampers/ergoassistpro:latest` (amd64 + arm64). Beim ersten Mal: GitHub → Profil → *Packages* → `ergoassistpro` → *Package settings* → **Change visibility → Public**, sonst kann das NAS das Image nicht laden.
