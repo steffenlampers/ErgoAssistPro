@@ -18,11 +18,14 @@ To ensure a fluid experience with local models, the following environment is use
 * **Frontend:** Open WebUI / React-based interface
 * **Local Models:** Qwen 2.5 (3B/Coder), Llama 3.1 (8B), Mistral Small
 
+## 🚀 Installation
+See [INSTALL.md](INSTALL.md) – one-paste Docker Compose setup for QNAP Container Station / any Docker host (German).
+
 ## 🚨 CRITICAL BUG FIXES & SYSTEM BASICS
-- [ ] Fix bug: Settings are not saved upon page reload
+- [x] Fix bug: Settings are not saved upon page reload
 - [ ] Fix bug: Patient records cannot be opened or edited
 - [ ] Fix bug: Advisor Assistant does not save outputs and loses patient assignment
-- [ ] Set up synchronization database (data must be accessible across devices)
+- [x] Set up synchronization database (data must be accessible across devices)
 - [ ] Adjust responsive design (app must work flawlessly on smartphones and tablets)
 
 ## 🤖 AI & GLOBAL ASSISTANT
@@ -77,11 +80,14 @@ ErgoAssist Pro ist ein spezialisierter KI-Assistent für die Ergotherapie, der d
 * **Intelligentes Model-Routing:** Das System nutzt eine autonome Logik, um je nach Komplexität der Aufgabe automatisch das passende lokale Modell (z.B. Llama 3.1, Mistral oder Qwen) auszuwählen.
 * **Therapeutische Entlastung:** Therapeuten sparen wertvolle Zeit bei der Befunddokumentation und erhalten evidenzbasierte Vorschläge für Behandlungsansätze.
 
+## 🚀 Installation
+Siehe [INSTALL.md](INSTALL.md) – ein Einfüge-Schritt per Docker Compose für QNAP Container Station.
+
 ## 🚨 AKUTE FEHLERBEHEBUNG & SYSTEMGRUNDLAGEN
-- [ ] Fehler beheben: Einstellungen werden beim Neuladen nicht gespeichert
+- [x] Fehler beheben: Einstellungen werden beim Neuladen nicht gespeichert
 - [ ] Fehler beheben: Patientenakte lässt sich nicht öffnen und bearbeiten
 - [ ] Fehler beheben: Berater-Assistent speichert Ausgaben nicht und verliert die Patientenzuordnung
-- [ ] Synchronisation Datenbank einrichten (Daten müssen geräteübergreifend verfügbar sein)
+- [x] Synchronisation Datenbank einrichten (Daten müssen geräteübergreifend verfügbar sein)
 - [ ] Responsive Design anpassen (App muss auf Smartphone und Tablet einwandfrei funktionieren)
 
 ## 🤖 KI & GLOBALER ASSISTENT

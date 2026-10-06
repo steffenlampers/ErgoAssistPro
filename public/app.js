@@ -39,19 +39,22 @@ const T = {
 // OLLAMA SERVICE
 // ═══════════════════════════════════════════════════════════════════════════
 class OllamaService {
-  constructor(url = "http://localhost:11434") {
-    this.baseUrl = url.replace(/\/$/, "");
+  // engine: "ollama" (native API) | "openai" (OpenAI-kompatibel: LM Studio, llama.cpp, vLLM, LocalAI, Open WebUI, Hermes Agent ...)
+  constructor(cfg = {}) {
+    this.baseUrl = (cfg.url || location.origin + "/llm").replace(/\/$/, "");
+    this.engine = cfg.engine || "ollama";
     this.ctrls = new Map();
   }
   async check() {
     try {
-      const r = await fetch(this.baseUrl + "/api/tags", {
-        signal: AbortSignal.timeout(3000)
+      const r = await fetch(this.baseUrl + (this.engine === "openai" ? "/models" : "/api/tags"), {
+        signal: AbortSignal.timeout(5000)
       });
+      if (!r.ok) throw new Error(r.status);
       const d = await r.json();
       return {
         ok: true,
-        models: (d.models || []).map(m => m.name)
+        models: this.engine === "openai" ? (d.data || []).map(m => m.id) : (d.models || []).map(m => m.name)
       };
     } catch {
       return {
@@ -76,13 +79,26 @@ class OllamaService {
     this.abort(taskId);
     const c = new AbortController();
     this.ctrls.set(taskId, c);
+    const oa = this.engine === "openai";
     try {
-      const r = await fetch(this.baseUrl + "/api/generate", {
+      const r = await fetch(this.baseUrl + (oa ? "/chat/completions" : "/api/generate"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
+        body: JSON.stringify(oa ? {
+          model,
+          messages: [...(system ? [{
+            role: "system",
+            content: system
+          }] : []), {
+            role: "user",
+            content: prompt
+          }],
+          stream: true,
+          temperature,
+          max_tokens: 2048
+        } : {
           model,
           prompt,
           system,
@@ -94,7 +110,7 @@ class OllamaService {
         }),
         signal: c.signal
       });
-      if (!r.ok) throw new Error("Ollama " + r.status);
+      if (!r.ok) throw new Error("KI-Server " + r.status);
       const reader = r.body.getReader();
       const dec = new TextDecoder();
       let buf = "";
@@ -109,12 +125,15 @@ class OllamaService {
         });
         const lines = buf.split("\n");
         buf = lines.pop() || "";
-        for (const l of lines) {
+        for (const l0 of lines) {
+          const l = oa ? l0.replace(/^data:\s*/, "") : l0;
           if (!l.trim()) continue;
+          if (oa && l.trim() === "[DONE]") return;
           try {
             const j = JSON.parse(l);
-            if (j.response) yield j.response;
-            if (j.done) return;
+            const t = oa ? j.choices?.[0]?.delta?.content : j.response;
+            if (t) yield t;
+            if (!oa && j.done) return;
           } catch {}
         }
       }
@@ -2927,7 +2946,7 @@ function Settings({
   const [editP, setEditP] = useState(null);
   const test = async () => {
     setTesting(true);
-    ollama.current = new OllamaService(cfg.url);
+    ollama.current = new OllamaService(cfg);
     const r = await ollama.current.check();
     setConn(r);
     setTesting(false);
@@ -2985,8 +3004,36 @@ function Settings({
     small: true,
     onClick: test,
     disabled: testing
-  }, testing ? "..." : "Testen")), /*#__PURE__*/React.createElement(Field, {
-    label: "Ollama URL",
+  }, testing ? "..." : "Testen")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 600,
+      color: T.inkSoft,
+      marginBottom: 4
+    }
+  }, "KI-Engine"), /*#__PURE__*/React.createElement("select", {
+    value: cfg.engine || "ollama",
+    onChange: e => setCfg(p => ({
+      ...p,
+      engine: e.target.value
+    })),
+    style: {
+      width: "100%",
+      padding: 8,
+      borderRadius: T.r8,
+      border: "1px solid " + T.sand,
+      fontFamily: T.sans
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "ollama"
+  }, "Ollama"), /*#__PURE__*/React.createElement("option", {
+    value: "openai"
+  }, "OpenAI-kompatibel (LM Studio, llama.cpp, vLLM, LocalAI, Open WebUI, Hermes Agent \u2026)"))), /*#__PURE__*/React.createElement(Field, {
+    label: "KI-Server URL (Standard: \u00FCber den ErgoAssist-Server)",
     value: cfg.url,
     onChange: v => setCfg(p => ({
       ...p,
@@ -3150,18 +3197,27 @@ function Settings({
 // ═══════════════════════════════════════════════════════════════════════════
 window.ErgoAssistPro = function ErgoAssistPro() {
   const [view, setView] = useState("patients"); // patients | dashboard | assistant | chat | ziele | ortho | settings
-  const [cfg, setCfg] = useState({
-    url: "http://localhost:11434"
+  const storage = useMemo(() => new PatientStorage(), []);
+  const saved = useMemo(() => storage.getSettings() || {}, []);
+  const [cfg, setCfg] = useState(saved.cfg || {
+    engine: "ollama",
+    url: location.origin + "/llm"
   });
   const [conn, setConn] = useState({
     ok: false,
     models: []
   });
-  const ollama = useRef(new OllamaService());
+  const ollama = useRef(new OllamaService(saved.cfg));
   const [collapsed, setCollapsed] = useState(false);
-  const [modelMap, setModelMap] = useState({});
-  const [prompts, setPrompts] = useState(JSON.parse(JSON.stringify(DEFAULT_PROMPTS)));
-  const storage = useMemo(() => new PatientStorage(), []);
+  const [modelMap, setModelMap] = useState(saved.modelMap || {});
+  const [prompts, setPrompts] = useState(saved.prompts || JSON.parse(JSON.stringify(DEFAULT_PROMPTS)));
+  useEffect(() => {
+    storage.saveSettings({
+      cfg,
+      modelMap,
+      prompts
+    });
+  }, [cfg, modelMap, prompts]);
   const getModel = useCallback(taskId => {
     if (modelMap[taskId]) return modelMap[taskId];
     const weights = {

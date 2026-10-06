@@ -1,0 +1,68 @@
+# ErgoAssist Pro – QNAP Container Station: "Anwendungen" > "Erstellen" > diesen Text einfuegen.
+# ErgoAssist bekommt eine EIGENE IP-Adresse im Heimnetz (Port 80, keine Port-Konflikte).
+#
+# >>> NUR DIESE 4 ZEILEN ANPASSEN (mit "<<< ANPASSEN" markiert) <<<
+#     Tipp: Die Daten stehen im Router (Fritzbox: Heimnetz > Netzwerk > Netzwerkeinstellungen).
+#     Die gewaehlte IP muss FREI sein (nicht vom Router vergeben) - z.B. ausserhalb des DHCP-Bereichs.
+#
+# Erreichbar danach: http://192.168.178.60   (Hinweis: das NAS selbst erreicht diese IP technisch
+# bedingt nicht, alle anderen Geraete im Netz schon. Geht das nicht: docker-compose.einfach.yml nutzen.)
+services:
+  ergoassist:
+    image: ghcr.io/steffenlampers/ergoassistpro:latest
+    container_name: ergoassist
+    restart: unless-stopped
+    environment:
+      PORT: "80"
+      # KI-Server (Upstream). Siehe INSTALL.md:
+      #  Ollama im Paket:            http://ollama:11434
+      #  Ollama auf anderem Rechner: http://192.168.178.50:11434
+      #  OpenAI-kompatibel (LM Studio, llama.cpp, vLLM, Hermes Agent ...): http://192.168.178.50:1234/v1
+      LLM_URL: "http://ollama:11434"
+      LLM_API_KEY: ""          # nur noetig, wenn dein KI-Server einen Schluessel verlangt
+      ACCESS_PASSWORD: ""      # Optional: Passwort fuer die App (Benutzername beliebig)
+    volumes:
+      - ergoassist_data:/data
+    networks:
+      lan:
+        ipv4_address: 192.168.178.60   # <<< ANPASSEN: freie IP fuer ErgoAssist
+      intern: {}
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ergoassist-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - intern
+
+  # Automatische Updates (taeglich)
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: ergoassist-updater
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_POLL_INTERVAL: "86400"
+
+networks:
+  lan:
+    driver: macvlan
+    driver_opts:
+      parent: eth0                     # <<< ANPASSEN: Netzwerkkarte des NAS (meist eth0, bei QNAP-Switch oft qvs0)
+    ipam:
+      config:
+        - subnet: 192.168.178.0/24     # <<< ANPASSEN: dein Heimnetz
+          gateway: 192.168.178.1       # <<< ANPASSEN: IP deines Routers
+          ip_range: 192.168.178.60/32  # (gleich wie die IP oben)
+  intern: {}
+
+volumes:
+  ergoassist_data:
+  ollama_models:
