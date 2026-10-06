@@ -1,0 +1,43 @@
+# ErgoAssist Pro – Installation per QNAP Container Station ("Anwendungen" > "Erstellen")
+# Einfach diesen gesamten Text einfuegen und auf "Erstellen" klicken.
+# Danach erreichbar unter  http://<NAS-IP>:8080
+services:
+  ergoassist:
+    image: ghcr.io/steffenlampers/ergoassistpro:latest
+    container_name: ergoassist
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Adresse deiner lokalen KI (Ollama). Standard: der mitgelieferte Ollama-Container unten.
+      # Laeuft Ollama woanders (z.B. Minisforum): hier http://192.168.x.x:11434 eintragen.
+      OLLAMA_URL: "http://ollama:11434"
+      # Optional: Passwort fuer die App (Benutzername beliebig). Leer = kein Passwort.
+      ACCESS_PASSWORD: ""
+    volumes:
+      - ergoassist_data:/data
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ergoassist-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_models:/root/.ollama
+
+  # Automatische Updates: prueft taeglich auf neue ErgoAssist-Versionen
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: ergoassist-updater
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_POLL_INTERVAL: "86400"
+
+volumes:
+  ergoassist_data:
+  ollama_models:

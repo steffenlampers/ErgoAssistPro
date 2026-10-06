@@ -39,7 +39,7 @@ const T = {
 // OLLAMA SERVICE
 // ═══════════════════════════════════════════════════════════════════════════
 class OllamaService {
-  constructor(url = "http://localhost:11434") {
+  constructor(url = location.origin + "/ollama") {
     this.baseUrl = url.replace(/\/$/, "");
     this.ctrls = new Map();
   }
@@ -3150,18 +3150,26 @@ function Settings({
 // ═══════════════════════════════════════════════════════════════════════════
 window.ErgoAssistPro = function ErgoAssistPro() {
   const [view, setView] = useState("patients"); // patients | dashboard | assistant | chat | ziele | ortho | settings
-  const [cfg, setCfg] = useState({
-    url: "http://localhost:11434"
+  const storage = useMemo(() => new PatientStorage(), []);
+  const saved = useMemo(() => storage.getSettings() || {}, []);
+  const [cfg, setCfg] = useState(saved.cfg || {
+    url: location.origin + "/ollama"
   });
   const [conn, setConn] = useState({
     ok: false,
     models: []
   });
-  const ollama = useRef(new OllamaService());
+  const ollama = useRef(new OllamaService(saved.cfg && saved.cfg.url || undefined));
   const [collapsed, setCollapsed] = useState(false);
-  const [modelMap, setModelMap] = useState({});
-  const [prompts, setPrompts] = useState(JSON.parse(JSON.stringify(DEFAULT_PROMPTS)));
-  const storage = useMemo(() => new PatientStorage(), []);
+  const [modelMap, setModelMap] = useState(saved.modelMap || {});
+  const [prompts, setPrompts] = useState(saved.prompts || JSON.parse(JSON.stringify(DEFAULT_PROMPTS)));
+  useEffect(() => {
+    storage.saveSettings({
+      cfg,
+      modelMap,
+      prompts
+    });
+  }, [cfg, modelMap, prompts]);
   const getModel = useCallback(taskId => {
     if (modelMap[taskId]) return modelMap[taskId];
     const weights = {

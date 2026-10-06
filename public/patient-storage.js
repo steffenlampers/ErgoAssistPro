@@ -4,12 +4,45 @@
 // Es fuegt hinzu: Patientenverwaltung, Befund-Verlauf, Fortschritts-Charts
 // ═══════════════════════════════════════════════════════════════════════════
 
-// ─── Storage Service (localStorage fuer QNAP, JSON Export/Import) ────────
+// ─── Sync-Schicht: localStorage = schneller Cache, Server (/api/data) = Wahrheit ──
+// Beim Start werden Daten vom Server geladen; jede Aenderung wird zum Server
+// geschrieben. So sind alle Geraete im Heimnetz auf demselben Stand.
+(function () {
+  const KEYS = ["ergoassist_patients", "ergoassist_settings"];
+  window.ergoSync = {
+    online: true,
+    push(key, value) {
+      fetch("/api/data/" + key, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: value,
+        keepalive: true
+      }).then(r => { window.ergoSync.online = r.ok; }).catch(() => { window.ergoSync.online = false; });
+    },
+    async pull() {
+      for (const k of KEYS) {
+        try {
+          const r = await fetch("/api/data/" + k, { cache: "no-store" });
+          if (r.ok) localStorage.setItem(k, await r.text());
+          else if (r.status === 404 && localStorage.getItem(k)) this.push(k, localStorage.getItem(k)); // Erstmigration
+        } catch { this.online = false; }
+      }
+    }
+  };
+  window.ergoSyncReady = window.ergoSync.pull();
+})();
+
+// ─── Storage Service ──────────────────────────────────────────────────────
 
 class PatientStorage {
   constructor() {
     this.STORE_KEY = "ergoassist_patients";
     this.SETTINGS_KEY = "ergoassist_settings";
+  }
+
+  _put(key, value) {
+    localStorage.setItem(key, value);
+    window.ergoSync && window.ergoSync.push(key, value);
   }
 
   // Get all patients (list overview)
@@ -50,7 +83,7 @@ class PatientStorage {
       const idx = patients.findIndex(p => p.id === patient.id);
       if (idx >= 0) patients[idx] = patient;
       else patients.push(patient);
-      localStorage.setItem(this.STORE_KEY, JSON.stringify(patients));
+      this._put(this.STORE_KEY, JSON.stringify(patients));
       return true;
     } catch (e) { console.error("Save error:", e); return false; }
   }
@@ -61,7 +94,7 @@ class PatientStorage {
       const raw = localStorage.getItem(this.STORE_KEY);
       if (!raw) return;
       const patients = JSON.parse(raw).filter(p => p.id !== id);
-      localStorage.setItem(this.STORE_KEY, JSON.stringify(patients));
+      this._put(this.STORE_KEY, JSON.stringify(patients));
     } catch {}
   }
 
@@ -123,10 +156,10 @@ class PatientStorage {
     try {
       const data = JSON.parse(jsonString);
       if (data.patienten) {
-        localStorage.setItem(this.STORE_KEY, JSON.stringify(data.patienten));
+        this._put(this.STORE_KEY, JSON.stringify(data.patienten));
       }
       if (data.einstellungen) {
-        localStorage.setItem(this.SETTINGS_KEY, JSON.stringify(data.einstellungen));
+        this._put(this.SETTINGS_KEY, JSON.stringify(data.einstellungen));
       }
       return { success: true, count: (data.patienten || []).length };
     } catch (e) {
@@ -136,7 +169,7 @@ class PatientStorage {
 
   // Save settings
   saveSettings(settings) {
-    localStorage.setItem(this.SETTINGS_KEY, JSON.stringify(settings));
+    this._put(this.SETTINGS_KEY, JSON.stringify(settings));
   }
 
   getSettings() {
